@@ -1,8 +1,9 @@
 import os
 import shutil
 from db import session
-from models import Libro, Nota, Autor, Genero
-from sqlalchemy import or_
+from models import Libro, Nota, Autor, Genero, Coleccion
+from sqlalchemy import or_, and_
+from typing import List, Optional
 
 
 PDF_FOLDER = "libros"
@@ -79,8 +80,24 @@ def crear_libro_pdf(ruta_pdf_original, titulo=None, nombre_autor=None, nombre_ge
             os.remove(destino)
         return None
 
-def obtener_libros():
+def obtener_libros() -> List[Libro]:
+    """Obtiene todos los libros de la base de datos"""
     return session.query(Libro).all()
+
+def obtener_libros_por_ids(ids_libros: List[int]) -> List[Libro]:
+    """
+    Obtiene una lista de libros por sus IDs
+    
+    Args:
+        ids_libros: Lista de IDs de libros a buscar
+        
+    Returns:
+        List[Libro]: Lista de libros encontrados
+    """
+    if not ids_libros:
+        return []
+        
+    return session.query(Libro).filter(Libro.id_libro.in_(ids_libros)).all()
 
 def actualizar_libro(id_libro, nuevo_ruta_pdf=None, nuevo_id_autor=None):
     libro = session.query(Libro).filter_by(id_libro=id_libro).first()
@@ -128,6 +145,8 @@ def actualizar_libro(id_libro, titulo=None, nombre_autor=None, nombre_genero=Non
         session.commit()
         return libro
     return None
+
+
 
 def eliminar_libro(id_libro):
     libro = session.query(Libro).filter_by(id_libro=id_libro).first()
@@ -212,24 +231,199 @@ def obtener_paginas_leidas(id_libro):
         print(f"Error al obtener páginas leídas: {e}")
         return 0
 
-def eliminar_libro(id_libro):
-    """Elimina un libro de la base de datos"""
+def crear_coleccion(nombre):
+    """Crea una nueva colección"""
     try:
-        libro = session.query(Libro).filter_by(id_libro=id_libro).first()
+        print(f"Intentando crear colección: {nombre}")
+        # Verificar si ya existe una colección con el mismo nombre
+        coleccion_existente = session.query(Coleccion).filter_by(nombre=nombre).first()
+        if coleccion_existente:
+            print(f"Ya existe una colección con el nombre: {nombre}")
+            print(f"ID de colección existente: {coleccion_existente.id_coleccion}")
+            return False
+            
+        # Crear la nueva colección
+        nueva_coleccion = Coleccion(nombre=nombre)
+        session.add(nueva_coleccion)
+        session.commit()
+        return True
+    except Exception as e:
+        session.rollback()
+        print(f"Error al crear la colección: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+def obtener_colecciones():
+    """Obtiene todas las colecciones"""
+    try:
+        print("Obteniendo todas las colecciones...")
+        colecciones = session.query(Coleccion).all()
+        print(f"Número de colecciones encontradas: {len(colecciones)}")
+        for i, coleccion in enumerate(colecciones, 1):
+            print(f"Colección {i}: {coleccion.nombre} (ID: {coleccion.id_coleccion})")
+            print(f"  Libros en la colección: {[libro.titulo for libro in coleccion.libros]}")
+        return colecciones
+    except Exception as e:
+        print(f"Error al obtener las colecciones: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
+
+def eliminar_coleccion(id_coleccion):
+    """Elimina una colección por su ID"""
+    try:
+        coleccion = session.query(Coleccion).get(id_coleccion)
+        if coleccion:
+            # Eliminar las relaciones en la tabla puente primero
+            coleccion.libros = []
+            session.commit()
+            
+            # Luego eliminar la colección
+            session.delete(coleccion)
+            session.commit()
+            return True
+        return False
+    except Exception as e:
+        session.rollback()
+        print(f"Error al eliminar la colección: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+def eliminar_libro(id_libro):
+    # Eliminar un libro de la base de datos
+    try:
+        libro = session.query(Libro).get(id_libro)
         if libro:
             # Eliminar el archivo PDF si existe
-            from db import PDF_FOLDER
-            import os
-            ruta_pdf = os.path.join(PDF_FOLDER, libro.archivo_pdf)
-            if os.path.exists(ruta_pdf):
-                os.remove(ruta_pdf)
+            if libro.archivo_pdf and os.path.exists(libro.archivo_pdf):
+                try:
+                    os.remove(libro.archivo_pdf)
+                except Exception as e:
+                    print(f"Error al eliminar el archivo PDF: {e}")
             
-            # Eliminar el libro de la base de datos
+            # Eliminar las notas asociadas
+            for nota in libro.notas:
+                session.delete(nota)
+            
+            # Eliminar el libro
             session.delete(libro)
             session.commit()
             return True
         return False
     except Exception as e:
-        print(f"Error al eliminar libro: {e}")
         session.rollback()
+        print(f"Error al eliminar el libro: {e}")
         return False
+
+def agregar_libro_a_coleccion(id_coleccion, id_libro):
+    """Agrega un libro a una colección"""
+    try:
+        coleccion = session.query(Coleccion).get(id_coleccion)
+        libro = session.query(Libro).get(id_libro)
+        
+        if not coleccion or not libro:
+            print("Colección o libro no encontrado")
+            return False
+            
+        if libro in coleccion.libros:
+            print("El libro ya está en la colección")
+            return False
+            
+        coleccion.libros.append(libro)
+        session.commit()
+        return True
+    except Exception as e:
+        session.rollback()
+        print(f"Error al agregar libro a la colección: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+def quitar_libro_de_coleccion(id_coleccion, id_libro):
+    """Quita un libro de una colección"""
+    try:
+        coleccion = session.query(Coleccion).get(id_coleccion)
+        libro = session.query(Libro).get(id_libro)
+        
+        if not coleccion or not libro:
+            print("Colección o libro no encontrado")
+            return False
+            
+        if libro not in coleccion.libros:
+            print("El libro no está en la colección")
+            return False
+            
+        coleccion.libros.remove(libro)
+        session.commit()
+        return True
+    except Exception as e:
+        session.rollback()
+        print(f"Error al quitar libro de la colección: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+def actualizar_nombre_coleccion(id_coleccion, nuevo_nombre):
+    """Actualiza el nombre de una colección"""
+    try:
+        coleccion = session.query(Coleccion).get(id_coleccion)
+        if coleccion:
+            # Verificar si ya existe otra colección con el mismo nombre
+            existe = session.query(Coleccion).filter(
+                Coleccion.nombre == nuevo_nombre,
+                Coleccion.id_coleccion != id_coleccion
+            ).first()
+            
+            if existe:
+                print("Ya existe otra colección con ese nombre")
+                return False
+                
+            coleccion.nombre = nuevo_nombre
+            session.commit()
+            return True
+        return False
+    except Exception as e:
+        session.rollback()
+        print(f"Error al actualizar el nombre de la colección: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+def obtener_coleccion_por_id(id_coleccion):
+    """Obtiene una colección por su ID"""
+    try:
+        return session.query(Coleccion).get(id_coleccion)
+    except Exception as e:
+        print(f"Error al obtener la colección: {e}")
+        return None
+
+def obtener_libros_en_coleccion(id_coleccion):
+    """Obtiene todos los libros que pertenecen a una colección específica"""
+    try:
+        print(f"\n[DEBUG] Buscando libros para la colección ID: {id_coleccion}")
+        
+        # Usar una consulta explícita para obtener los libros de la colección
+        from models import libro_coleccion, Libro
+        
+        # Consulta para obtener los libros de la colección usando la tabla de asociación
+        libros = session.query(Libro).join(
+            libro_coleccion, 
+            Libro.id_libro == libro_coleccion.c.id_libro
+        ).filter(
+            libro_coleccion.c.id_coleccion == id_coleccion
+        ).all()
+        
+        print(f"[DEBUG] Número de libros encontrados en la colección: {len(libros) if libros else 0}")
+        
+        # Imprimir información de cada libro para depuración
+        for i, libro in enumerate(libros, 1):
+            print(f"[DEBUG] Libro {i}: ID={libro.id_libro}, Título='{libro.titulo}'")
+        
+        return libros
+    except Exception as e:
+        print(f"Error al obtener libros de la colección: {e}")
+        import traceback
+        traceback.print_exc()
+        return []

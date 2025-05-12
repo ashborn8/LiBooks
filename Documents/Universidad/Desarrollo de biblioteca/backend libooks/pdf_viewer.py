@@ -18,7 +18,7 @@ class PDFViewer(QDialog):
         
         # Timer para guardar el progreso
         self.save_timer = QTimer()
-        self.save_timer.setInterval(1000)  # Guardar cada segundo
+        self.save_timer.setInterval(1000) 
         self.save_timer.timeout.connect(self.save_reading_progress)
         
         # Configurar ventana

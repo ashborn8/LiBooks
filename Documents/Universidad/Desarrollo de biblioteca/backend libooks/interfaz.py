@@ -2,13 +2,14 @@ from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton, QVBoxLayout,
     QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QFrame,
     QFileDialog, QMessageBox, QDialog, QInputDialog, QMenu, QAction,
-    QFormLayout, QComboBox, QDialogButtonBox, QCheckBox, QScrollArea, QStackedWidget, QGridLayout
+    QFormLayout, QComboBox, QDialogButtonBox, QCheckBox, QScrollArea, QStackedWidget, QGridLayout, QSizePolicy
 )
 from PyQt5.QtGui import QPainter, QPen, QBrush, QColor, QPixmap, QPainterPath, QFont
 from PyQt5.QtCore import Qt, QSize
 import psycopg2
 import sys
 import os
+from crud import crear_coleccion, agregar_libro_a_coleccion
 
 from pdf_viewer import PDFViewer
 
@@ -26,6 +27,9 @@ def crear_formulario_coleccion(parent):
     
     # Widget contenedor
     widget = QWidget()
+    
+    # Obtener referencia a la instancia de BibliotecaApp
+    biblioteca_app = parent
     widget.setStyleSheet("""
         QLabel {
             color: white;
@@ -81,32 +85,67 @@ def crear_formulario_coleccion(parent):
     titulo_input.setPlaceholderText("Ingrese el título de la colección")
     form_layout.addRow("Título de la colección:", titulo_input)
     
-    # Combo para seleccionar libro
-    libro_combo = QComboBox()
-    libro_combo.addItem("Seleccione un libro", None)
-    for libro in libros:
-        libro_combo.addItem(libro.titulo, libro)
-    form_layout.addRow("Título del libro:", libro_combo)
+    # Lista para seleccionar múltiples libros
+    libros_list = QListWidget()
+    libros_list.setSelectionMode(QListWidget.MultiSelection)
+    libros_list.setStyleSheet("""
+        QListWidget {
+            background-color: #1A4D5B;
+            color: white;
+            border: 1px solid #2D7D8F;
+            border-radius: 4px;
+            padding: 5px;
+        }
+        QListWidget::item:selected {
+            background-color: #2D7D8F;
+            color: white;
+        }
+    """)
     
-    # Combo para seleccionar autor
+    # Agregar libros a la lista
+    for libro in libros:
+        item = QListWidgetItem(libro.titulo)
+        item.setData(Qt.UserRole, libro)
+        libros_list.addItem(item)
+    
+    # Ajustar tamaño de la lista
+    libros_list.setMinimumHeight(150)
+    libros_list.setMaximumHeight(200)
+    # Asegurar que el ancho sea consistente con los otros campos
+    libros_list.setMinimumWidth(250)
+    
+    # Crear un widget contenedor con etiqueta
+    libros_container = QWidget()
+    libros_layout = QVBoxLayout(libros_container)
+    libros_layout.setContentsMargins(0, 0, 0, 0)
+    libros_layout.addWidget(QLabel("Seleccione uno o más libros:"))
+    libros_layout.addWidget(libros_list)
+    
+    # Asegurar que el contenedor se expanda horizontalmente
+    libros_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+    
+    # Agregar al formulario con la misma alineación que los otros campos
+    form_layout.addRow("Libros:", libros_container)
+    
+    # Combo para seleccionar autor (opcional)
     autor_combo = QComboBox()
-    autor_combo.addItem("Seleccione un autor", None)
+    autor_combo.addItem("Seleccionar autor (opcional)", None)
     autores = {}
     for libro in libros:
         if hasattr(libro, 'autor') and libro.autor and libro.autor.id_autor not in autores:
             autores[libro.autor.id_autor] = libro.autor
             autor_combo.addItem(libro.autor.nombre, libro.autor)
-    form_layout.addRow("Autor:", autor_combo)
+    form_layout.addRow("Agregar por autor (opcional):", autor_combo)
     
-    # Combo para seleccionar género
+    # Combo para seleccionar género (opcional)
     genero_combo = QComboBox()
-    genero_combo.addItem("Seleccione un género", None)
+    genero_combo.addItem("Seleccionar género (opcional)", None)
     generos = {}
     for libro in libros:
         if hasattr(libro, 'genero') and libro.genero and libro.genero.id_genero not in generos:
             generos[libro.genero.id_genero] = libro.genero
             genero_combo.addItem(libro.genero.nombre, libro.genero)
-    form_layout.addRow("Género:", genero_combo)
+    form_layout.addRow("Agregar por género (opcional):", genero_combo)
     
     # Botones
     btn_crear = QPushButton("Crear Colección")
@@ -126,30 +165,79 @@ def crear_formulario_coleccion(parent):
     # Función para manejar la creación de la colección
     def on_crear_clicked():
         titulo = titulo_input.text().strip()
-        libro = libro_combo.currentData()
-        autor = autor_combo.currentData()
-        genero = genero_combo.currentData()
-        
         if not titulo:
-            QMessageBox.warning(widget, "Error", "Debes ingresar un título para la colección")
+            QMessageBox.warning(widget, "Error", "El título de la colección es obligatorio")
             return
             
-        # Aquí iría el código para guardar la colección en la base de datos
-        mensaje = f"Colección '{titulo}' creada con los siguientes filtros:\n"
-        if libro:
-            mensaje += f"- Libro: {libro.titulo}\n"
-        if autor:
-            mensaje += f"- Autor: {autor.nombre}\n"
-        if genero:
-            mensaje += f"- Género: {genero.nombre}"
+        # Obtener los libros seleccionados de la lista
+        libros_seleccionados = []
+        for i in range(libros_list.count()):
+            item = libros_list.item(i)
+            if item.isSelected():
+                libro = item.data(Qt.UserRole)
+                libros_seleccionados.append(libro.id_libro)
         
-        QMessageBox.information(widget, "Colección creada", mensaje)
+        # Verificar que se haya seleccionado al menos un libro
+        if not libros_seleccionados:
+            QMessageBox.warning(widget, "Error", "Debes seleccionar al menos un libro")
+            return
+            
+        # Obtener autor y género seleccionados (opcionales)
+        autor_seleccionado = autor_combo.currentData()
+        genero_seleccionado = genero_combo.currentData()
         
-        # Limpiar el formulario
-        titulo_input.clear()
-        libro_combo.setCurrentIndex(0)
-        autor_combo.setCurrentIndex(0)
-        genero_combo.setCurrentIndex(0)
+        # Si se seleccionó un autor o género, agregar esos libros también
+        if autor_seleccionado or genero_seleccionado:
+            from crud import obtener_libros
+            libros = obtener_libros()
+            for libro in libros:
+                if (autor_seleccionado and libro.autor and libro.autor.id_autor == autor_seleccionado.id_autor) or \
+                   (genero_seleccionado and libro.genero and libro.genero.id_genero == genero_seleccionado.id_genero):
+                    if libro.id_libro not in libros_seleccionados:
+                        libros_seleccionados.append(libro.id_libro)
+        
+        # Crear la colección en la base de datos
+        from crud import session
+        try:
+            # Crear la colección
+            if not crear_coleccion(titulo):
+                QMessageBox.warning(widget, "Error", "Ya existe una colección con ese nombre")
+                return
+            
+            # Obtener la colección recién creada
+            from models import Coleccion
+            coleccion = session.query(Coleccion).filter_by(nombre=titulo).first()
+            
+            if not coleccion:
+                raise Exception("No se pudo obtener la colección recién creada")
+            
+            # Agregar los libros seleccionados a la colección
+            for libro_id in libros_seleccionados:
+                if not agregar_libro_a_coleccion(coleccion.id_coleccion, libro_id):
+                    print(f"Advertencia: No se pudo agregar el libro con ID {libro_id} a la colección")
+            
+            # Confirmar los cambios
+            session.commit()
+            
+            # Actualizar la lista de colecciones
+            if hasattr(parent, 'actualizar_lista_colecciones'):
+                parent.actualizar_lista_colecciones()
+            
+            # Cerrar el diálogo
+            dialog = widget.parent()
+            if isinstance(dialog, QDialog):
+                dialog.accept()
+            else:
+                widget.setParent(None)
+            
+            # Mostrar mensaje de éxito
+            QMessageBox.information(widget, "Éxito", f"Colección '{titulo}' creada correctamente con {len(libros_seleccionados)} libros")
+            
+        except Exception as e:
+            session.rollback()
+            QMessageBox.critical(widget, "Error", f"Ocurrió un error al crear la colección: {str(e)}")
+            import traceback
+            traceback.print_exc()
     
     # Conectar señales
     btn_crear.clicked.connect(on_crear_clicked)
@@ -227,6 +315,14 @@ class BibliotecaApp(QWidget):
         # Inicializar la lista de PDFs
         self.pdf_list = []
         
+        # Inicializar diccionario de funciones CRUD
+        from crud import crear_coleccion, obtener_colecciones, eliminar_coleccion
+        self.funciones_crud = {
+            'crear_coleccion': crear_coleccion,
+            'obtener_colecciones': obtener_colecciones,
+            'eliminar_coleccion': eliminar_coleccion
+        }
+        
         self.initUI()
 
     def initUI(self):
@@ -290,12 +386,149 @@ class BibliotecaApp(QWidget):
         
         sidebar_layout.addWidget(colecciones_header)
 
-        sub_label = QLabel('Presiona en el "+" \npara agregar una nueva colección')
-        sub_label.setFont(QFont("Arial", 12))
-        sub_label.setStyleSheet("color: lightgray;")
-        sub_label.setAlignment(Qt.AlignCenter)
-        sidebar_layout.addWidget(sub_label)
-
+        # Diccionario para almacenar las colecciones y sus filtros
+        self.colecciones = {}
+        
+        # Contenedor principal para las colecciones con scroll
+        scroll_container = QScrollArea()
+        scroll_container.setWidgetResizable(True)
+        scroll_container.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background: transparent;
+            }
+            QScrollBar:vertical {
+                border: none;
+                background: #0F3444;
+                width: 8px;
+            }
+            QScrollBar::handle:vertical {
+                background: #2D7D8F;
+                border-radius: 4px;
+                min-height: 20px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+        """)
+        
+        # Widget contenedor para los elementos de la colección
+        self.colecciones_container = QWidget()
+        self.colecciones_layout = QVBoxLayout(self.colecciones_container)
+        self.colecciones_layout.setContentsMargins(5, 5, 5, 5)
+        self.colecciones_layout.setSpacing(10)
+        
+        # Configurar el scroll area
+        scroll_container.setWidget(self.colecciones_container)
+        
+        # Función para actualizar la lista de colecciones
+        def actualizar_lista_colecciones():
+            # Limpiar el layout actual
+            while self.colecciones_layout.count() > 0:
+                item = self.colecciones_layout.takeAt(0)
+                if item.widget():
+                    item.widget().deleteLater()
+            
+            # Obtener las colecciones de la base de datos
+            from crud import obtener_colecciones
+            from models import Coleccion
+            
+            try:
+                colecciones = obtener_colecciones()
+                
+                # Agregar cada colección como un botón
+                for coleccion in colecciones:
+                    if not isinstance(coleccion, Coleccion):
+                        continue
+                        
+                    # Crear un contenedor horizontal para el botón de colección y el botón de eliminar
+                    coleccion_container = QWidget()
+                    coleccion_layout = QHBoxLayout(coleccion_container)
+                    coleccion_layout.setContentsMargins(0, 0, 0, 0)
+                    coleccion_layout.setSpacing(5)
+                    
+                    # Botón de la colección
+                    coleccion_widget = QPushButton(coleccion.nombre)
+                    coleccion_widget.setStyleSheet("""
+                        QPushButton {
+                            background-color: rgba(45, 125, 143, 0.7);
+                            color: white;
+                            border: none;
+                            border-radius: 12px;
+                            padding: 10px 15px;
+                            text-align: left;
+                            font-size: 14px;
+                            font-weight: 500;
+                        }
+                        QPushButton:hover {
+                            background-color: rgba(45, 125, 143, 0.9);
+                        }
+                    """)
+                    
+                    # Botón de eliminar colección
+                    btn_eliminar = QPushButton("×")
+                    btn_eliminar.setFixedSize(30, 30)
+                    btn_eliminar.setStyleSheet("""
+                        QPushButton {
+                            background-color: rgba(255, 82, 82, 0.7);
+                            color: white;
+                            border: none;
+                            border-radius: 15px;
+                            font-size: 18px;
+                            font-weight: bold;
+                        }
+                        QPushButton:hover {
+                            background-color: rgba(255, 23, 68, 0.9);
+                        }
+                    """)
+                    
+                    # Conectar el clic del botón de eliminar
+                    btn_eliminar.clicked.connect(lambda checked, id_coleccion=coleccion.id_coleccion, nombre_coleccion=coleccion.nombre: 
+                                              self.confirmar_eliminar_coleccion(id_coleccion, nombre_coleccion))
+                    
+                    # Agregar los widgets al layout horizontal
+                    coleccion_layout.addWidget(coleccion_widget, 1)  # El 1 es el factor de estiramiento
+                    coleccion_layout.addWidget(btn_eliminar)
+                    
+                    # Mostrar una descripción de los filtros en el tooltip
+                    tooltip = f"{coleccion.nombre}\n\nFiltros:"
+                    if hasattr(coleccion, 'libros') and coleccion.libros:
+                        tooltip += f"\n- Libro específico"
+                    if hasattr(coleccion, 'filtro_autor_id') and coleccion.filtro_autor_id:
+                        tooltip += f"\n- Mismo autor"
+                    if hasattr(coleccion, 'filtro_genero_id') and coleccion.filtro_genero_id:
+                        tooltip += f"\n- Mismo género"
+                    coleccion_widget.setToolTip(tooltip)
+                    
+                    # Conectar el clic
+                    filtros = {
+                        'id_coleccion': coleccion.id_coleccion,
+                        'libro_id': coleccion.libros[0].id_libro if hasattr(coleccion, 'libros') and coleccion.libros else None,
+                        'autor_id': coleccion.filtro_autor_id if hasattr(coleccion, 'filtro_autor_id') else None,
+                        'genero_id': coleccion.filtro_genero_id if hasattr(coleccion, 'filtro_genero_id') else None
+                    }
+                    coleccion_widget.clicked.connect(
+                        lambda checked, f=filtros: self.aplicar_filtros_coleccion(f)
+                    )
+                    
+                    self.colecciones_layout.addWidget(coleccion_container)
+                
+                # Añadir espaciador al final
+                self.colecciones_layout.addStretch()
+                
+            except Exception as e:
+                print(f"Error al cargar colecciones: {str(e)}")
+                import traceback
+                traceback.print_exc()
+        
+        # Llamar a la función para cargar las colecciones iniciales
+        actualizar_lista_colecciones()
+        
+        # Guardar referencia a la función para usarla en otros métodos
+        self.actualizar_lista_colecciones = actualizar_lista_colecciones
+        
+        # Añadir el contenedor con scroll al layout del panel izquierdo
+        sidebar_layout.addWidget(scroll_container)
         sidebar_layout.addStretch()
 
         config_button = QPushButton("Configuraciones ⚙")
@@ -331,12 +564,39 @@ class BibliotecaApp(QWidget):
         libros_layout.setContentsMargins(20, 20, 20, 20)
         libros_layout.setSpacing(20)
 
-        # Contenedor para la barra de búsqueda centrada
+        # Contenedor para la barra de búsqueda y botón de atrás
+        header_container = QWidget()
+        header_layout = QHBoxLayout(header_container)
+        header_layout.setContentsMargins(0, 0, 0, 20)
+        
+        # Botón de Atrás (inicialmente oculto)
+        self.btn_atras = QPushButton("← Atrás")
+        self.btn_atras.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #7dd6a6;
+                border: 1px solid #7dd6a6;
+                border-radius: 15px;
+                padding: 8px 15px;
+                font-size: 14px;
+                min-width: 80px;
+                margin-right: 10px;
+            }
+            QPushButton:hover {
+                background-color: rgba(125, 214, 166, 0.1);
+            }
+        """)
+        self.btn_atras.hide()
+        
+        # Conectar la señal de clic
+        self.btn_atras.clicked.connect(self.mostrar_todos_los_libros)
+        
+        # Contenedor para la barra de búsqueda
         search_container = QWidget()
         search_layout = QHBoxLayout(search_container)
-        search_layout.setContentsMargins(0, 0, 0, 20)
+        search_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Barra de búsqueda centrada
+        # Barra de búsqueda
         self.search_bar = QLineEdit()
         self.search_bar.setPlaceholderText("Buscar libros...")
         self.search_bar.setStyleSheet("""
@@ -356,12 +616,15 @@ class BibliotecaApp(QWidget):
         self.search_bar.returnPressed.connect(self.realizar_busqueda)
         self.search_bar.textChanged.connect(self.filtrar_libros)
         
-        # Centrar la barra de búsqueda
-        search_layout.addStretch()
+        # Añadir la barra de búsqueda al layout
         search_layout.addWidget(self.search_bar)
-        search_layout.addStretch()
         
-        libros_layout.addWidget(search_container)
+        # Añadir widgets al layout del encabezado
+        header_layout.addWidget(self.btn_atras)
+        header_layout.addWidget(search_container, 1)  # El 1 hace que la barra de búsqueda ocupe el espacio restante
+        
+        # Añadir el contenedor del encabezado al layout principal
+        libros_layout.addWidget(header_container)
         
         # Botón para agregar libro
         add_libro_btn = QPushButton("Añadir Libro  +")
@@ -496,6 +759,60 @@ class BibliotecaApp(QWidget):
         if self.contenido_dinamico.count() > 0:
             self.contenido_dinamico.setCurrentIndex(0)
 
+    def actualizar_lista_colecciones(self):
+        """Actualiza la lista de colecciones en la interfaz"""
+        # Limpiar el layout actual
+        for i in reversed(range(self.colecciones_layout.count())): 
+            widget = self.colecciones_layout.itemAt(i).widget()
+            if widget:
+                widget.setParent(None)
+        
+        # Obtener las colecciones de la base de datos
+        from crud import obtener_colecciones
+        from models import Coleccion
+        
+        try:
+            colecciones = obtener_colecciones()
+            
+            # Agregar cada colección como un botón
+            for coleccion in colecciones:
+                if not isinstance(coleccion, Coleccion):
+                    continue
+                    
+                coleccion_widget = QPushButton(coleccion.nombre)
+                coleccion_widget.setStyleSheet("""
+                    QPushButton {
+                        background-color: rgba(45, 125, 143, 0.7);
+                        color: white;
+                        border: none;
+                        border-radius: 12px;
+                        padding: 10px 15px;
+                        text-align: left;
+                        font-size: 14px;
+                        font-weight: 500;
+                    }
+                    QPushButton:hover {
+                        background-color: rgba(45, 125, 143, 0.9);
+                    }
+                """)
+                
+                # Conectar el clic para mostrar los libros de la colección
+                coleccion_widget.clicked.connect(
+                    lambda checked, c=coleccion: self.aplicar_filtros_coleccion({
+                        'id_coleccion': c.id_coleccion
+                    })
+                )
+                
+                self.colecciones_layout.addWidget(coleccion_widget)
+                
+            # Asegurarse de que el contenedor se actualice
+            self.colecciones_container.adjustSize()
+            
+        except Exception as e:
+            print(f"Error al cargar colecciones: {str(e)}")
+            import traceback
+            traceback.print_exc()
+    
     def limpiar_libros(self):
         # Limpiar la lista de libros
         if hasattr(self, 'pdf_list') and self.pdf_list:
@@ -673,6 +990,38 @@ class BibliotecaApp(QWidget):
         if reply == QMessageBox.Yes:
             self.eliminar_libro(id_libro)
 
+    def confirmar_eliminar_coleccion(self, id_coleccion, nombre_coleccion):
+        """Muestra un diálogo de confirmación para eliminar una colección"""
+        reply = QMessageBox.question(
+            self,
+            'Confirmar eliminación',
+            f'¿Estás seguro de que quieres eliminar la colección "{nombre_coleccion}"?\n\nEsta acción no se puede deshacer.',
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            self.eliminar_coleccion(id_coleccion)
+
+    def eliminar_coleccion(self, id_coleccion):
+        """Elimina una colección de la base de datos"""
+        from crud import eliminar_coleccion
+
+        if eliminar_coleccion(id_coleccion):
+            # Actualizar la lista de colecciones
+            self.actualizar_lista_colecciones()
+            QMessageBox.information(
+                self,
+                "Éxito",
+                "La colección ha sido eliminada correctamente."
+            )
+        else:
+            QMessageBox.warning(
+                self,
+                "Error",
+                "No se pudo eliminar la colección. Asegúrate de que no esté siendo usada."
+            )
+
     def eliminar_libro(self, id_libro):
         """Elimina un libro de la base de datos"""
         from crud import eliminar_libro
@@ -691,6 +1040,38 @@ class BibliotecaApp(QWidget):
                 "Error",
                 "No se pudo eliminar el libro."
             )
+
+    def mostrar_todos_los_libros(self):
+        """Muestra todos los libros sin filtros"""
+        self.btn_atras.hide()
+        self.cargar_pdf_desde_db()
+        
+    def aplicar_filtros_coleccion(self, filtros):
+        """Filtra los libros según los criterios de la colección"""
+        from crud import obtener_libros, obtener_libros_en_coleccion
+        
+        # Si hay un ID de colección, obtener los libros de esa colección
+        if 'id_coleccion' in filtros and filtros['id_coleccion'] is not None:
+            libros = obtener_libros_en_coleccion(filtros['id_coleccion'])
+        else:
+            # Si no hay ID de colección, obtener todos los libros y aplicar otros filtros
+            libros = obtener_libros()
+            
+            # Aplicar filtros de la colección
+            if 'libro_id' in filtros and filtros['libro_id'] is not None:
+                libros = [libro for libro in libros if hasattr(libro, 'id_libro') and libro.id_libro == filtros['libro_id']]
+            if 'autor_id' in filtros and filtros['autor_id'] is not None:
+                libros = [libro for libro in libros if hasattr(libro, 'autor') and libro.autor and libro.autor.id_autor == filtros['autor_id']]
+            if 'genero_id' in filtros and filtros['genero_id'] is not None:
+                libros = [libro for libro in libros if hasattr(libro, 'genero') and libro.genero and libro.genero.id_genero == filtros['genero_id']]
+        
+        # Limpiar y mostrar los libros filtrados
+        self.limpiar_libros()
+        for libro in libros:
+            self.agregar_libro_a_lista(libro)
+            
+        # Mostrar el botón de atrás
+        self.btn_atras.show()
 
     def cargar_pdf_desde_db(self, filtro=None):
         """Carga los PDFs desde la base de datos con opción de filtrado"""
