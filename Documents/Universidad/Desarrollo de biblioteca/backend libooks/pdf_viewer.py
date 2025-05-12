@@ -574,12 +574,15 @@ class NotasDialog(QDialog):
                 font-size: 14px;
                 margin-bottom: 5px;
             }
-            QTextEdit {
+            QLineEdit, QTextEdit {
                 background-color: #0F3444;
                 border: 1px solid #518C7A;
                 border-radius: 5px;
                 color: white;
                 padding: 8px;
+                margin-bottom: 15px;
+            }
+            QTextEdit {
                 min-height: 200px;
             }
             QPushButton {
@@ -598,9 +601,16 @@ class NotasDialog(QDialog):
         
         layout = QVBoxLayout(dialog)
         
+        # Título
+        titulo_edit = QLineEdit()
+        titulo_edit.setText(nota.titulo)
+        layout.addWidget(QLabel("Título:"))
+        layout.addWidget(titulo_edit)
+        
         # Contenido
         contenido_edit = QTextEdit()
         contenido_edit.setPlainText(nota.contenido)
+        layout.addWidget(QLabel("Contenido:"))
         layout.addWidget(contenido_edit)
         
         # Botones
@@ -619,16 +629,29 @@ class NotasDialog(QDialog):
         layout.addLayout(btn_layout)
         
         if dialog.exec_() == QDialog.Accepted:
+            nuevo_titulo = titulo_edit.text().strip()
             nuevo_contenido = contenido_edit.toPlainText().strip()
             
-            if nuevo_contenido != nota.contenido:
-                try:
-                    actualizar_nota(nota.id_nota, contenido=nuevo_contenido)
+            if not nuevo_titulo:
+                QMessageBox.warning(self, "Error", "El título no puede estar vacío")
+                return
+                
+            try:
+                # Solo actualizar si hay cambios
+                if nuevo_titulo != nota.titulo or nuevo_contenido != nota.contenido:
+                    actualizar_nota(nota.id_nota, nuevo_titulo, nuevo_contenido)
                     self.cargar_notas()
                     # Actualizar la vista previa
-                    self.mostrar_nota_seleccionada(item)
-                except Exception as e:
-                    QMessageBox.critical(self, "Error", f"No se pudo actualizar la nota: {str(e)}")
+                    for i in range(self.notas_list.count()):
+                        current_item = self.notas_list.item(i)
+                        if current_item.data(Qt.UserRole) == nota.id_nota:
+                            self.notas_list.setCurrentItem(current_item)
+                            self.mostrar_nota_seleccionada(current_item)
+                            break
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"No se pudo actualizar la nota: {str(e)}")
+                import traceback
+                print(traceback.format_exc())
     
     def eliminar_nota(self):
         """Elimina la nota seleccionada"""
