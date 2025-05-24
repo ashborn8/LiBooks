@@ -2,7 +2,7 @@ import os
 import shutil
 from db import session
 from models import Libro, Nota, Autor, Genero, Coleccion
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, func
 from sqlalchemy.orm import joinedload
 from typing import List, Optional
 import traceback as tb
@@ -16,26 +16,50 @@ if not os.path.exists(PDF_FOLDER):
 
 
 def buscar_o_crear_autor(nombre_autor):
+    # Primero buscamos una coincidencia exacta
     autor = session.query(Autor).filter(
-        Autor.nombre.ilike(f"%{nombre_autor}%")
+        func.lower(Autor.nombre) == func.lower(nombre_autor)
     ).first()
     
+    # Si no hay coincidencia exacta, buscamos una coincidencia parcial
     if not autor:
-        autor = Autor(nombre=nombre_autor)
+        autor = session.query(Autor).filter(
+            func.lower(Autor.nombre).contains(func.lower(nombre_autor))
+        ).first()
+    
+    # Si aún no encontramos un autor, lo creamos
+    if not autor and nombre_autor.strip():
+        autor = Autor(nombre=nombre_autor.strip())
         session.add(autor)
         session.commit()
     
     return autor
 
 def buscar_o_crear_genero(nombre_genero):
+    if not nombre_genero or not nombre_genero.strip():
+        return None
+        
+    nombre_genero = nombre_genero.strip()
+    
+    # Primero buscamos una coincidencia exacta
     genero = session.query(Genero).filter(
-        Genero.nombre.ilike(f"%{nombre_genero}%")
+        func.lower(Genero.nombre) == func.lower(nombre_genero)
     ).first()
     
+    # Si no hay coincidencia exacta, buscamos una coincidencia parcial
     if not genero:
-        # Si no existe, crear nuevo género
+        genero = session.query(Genero).filter(
+            func.lower(Genero.nombre).contains(func.lower(nombre_genero))
+        ).first()
+    
+    # Si aún no encontramos un género, lo creamos
+    if not genero:
         genero = Genero(nombre=nombre_genero)
         session.add(genero)
+        session.commit()
+    # Si encontramos un género similar pero no exacto, actualizamos el nombre
+    elif genero.nombre.lower() != nombre_genero.lower():
+        genero.nombre = nombre_genero
         session.commit()
     
     return genero

@@ -169,7 +169,36 @@ class PDFViewer(QDialog):
     def mostrar_notas(self):
         """Muestra el diálogo de notas"""
         if not self.libro_id:
-            QMessageBox.warning(self, "Error", "No se puede acceder a las notas sin un ID de libro válido")
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Warning)
+            msg.setWindowTitle("Error")
+            msg.setText("No se puede acceder a las notas sin un ID de libro válido")
+            msg.setStyleSheet("""
+                QMessageBox {
+                    background-color: #0F3444;
+                    color: white;
+                }
+                QMessageBox QLabel {
+                    color: white;
+                    font-size: 14px;
+                }
+                QMessageBox QPushButton {
+                    background-color: #1A4D5B;
+                    color: white;
+                    border: 1px solid #2D7D8F;
+                    border-radius: 4px;
+                    padding: 8px 16px;
+                    font-size: 14px;
+                    min-width: 80px;
+                }
+                QMessageBox QPushButton:hover {
+                    background-color: #2D7D8F;
+                }
+                QMessageBox QPushButton:focus {
+                    outline: none;
+                }
+            """)
+            msg.exec_()
             return
             
         dialog = NotasDialog(self.libro_id, self)
@@ -519,7 +548,36 @@ class NotasDialog(QDialog):
             contenido = contenido_edit.toPlainText().strip()
             
             if not titulo:
-                QMessageBox.warning(self, "Error", "El título no puede estar vacío")
+                msg = QMessageBox(self)
+                msg.setIcon(QMessageBox.Warning)
+                msg.setWindowTitle("Error")
+                msg.setText("El título no puede estar vacíoo")
+                msg.setStyleSheet("""
+                    QMessageBox {
+                        background-color: #0F3444;
+                        color: white;
+                    }
+                    QMessageBox QLabel {
+                        color: white;
+                        font-size: 14px;
+                    }
+                    QMessageBox QPushButton {
+                        background-color: #1A4D5B;
+                        color: white;
+                        border: 1px solid #2D7D8F;
+                        border-radius: 4px;
+                        padding: 8px 16px;
+                        font-size: 14px;
+                        min-width: 80px;
+                    }
+                    QMessageBox QPushButton:hover {
+                        background-color: #2D7D8F;
+                    }
+                    QMessageBox QPushButton:focus {
+                        outline: none;
+                    }
+                """)
+                msg.exec_()
                 return
                 
             try:
@@ -529,7 +587,36 @@ class NotasDialog(QDialog):
                 if self.notas_list.count() > 0:
                     self.notas_list.setCurrentRow(0)
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"No se pudo crear la nota: {str(e)}")
+                msg = QMessageBox(self)
+                msg.setIcon(QMessageBox.Critical)
+                msg.setWindowTitle("Error")
+                msg.setText(f"No se pudo crear la nota: {str(e)}")
+                msg.setStyleSheet("""
+                    QMessageBox {
+                        background-color: #0F3444;
+                        color: white;
+                    }
+                    QMessageBox QLabel {
+                        color: white;
+                        font-size: 14px;
+                    }
+                    QMessageBox QPushButton {
+                        background-color: #1A4D5B;
+                        color: white;
+                        border: 1px solid #2D7D8F;
+                        border-radius: 4px;
+                        padding: 8px 16px;
+                        font-size: 14px;
+                        min-width: 80px;
+                    }
+                    QMessageBox QPushButton:hover {
+                        background-color: #2D7D8F;
+                    }
+                    QMessageBox QPushButton:focus {
+                        outline: none;
+                    }
+                """)
+                msg.exec_()
     
     def mostrar_nota_seleccionada(self, item):
         """Muestra la nota seleccionada en el panel de vista previa"""
@@ -633,7 +720,36 @@ class NotasDialog(QDialog):
             nuevo_contenido = contenido_edit.toPlainText().strip()
             
             if not nuevo_titulo:
-                QMessageBox.warning(self, "Error", "El título no puede estar vacío")
+                msg = QMessageBox(self)
+                msg.setIcon(QMessageBox.Warning)
+                msg.setWindowTitle("Error")
+                msg.setText("El título no puede estar vacíoo")
+                msg.setStyleSheet("""
+                    QMessageBox {
+                        background-color: #0F3444;
+                        color: white;
+                    }
+                    QMessageBox QLabel {
+                        color: white;
+                        font-size: 14px;
+                    }
+                    QMessageBox QPushButton {
+                        background-color: #1A4D5B;
+                        color: white;
+                        border: 1px solid #2D7D8F;
+                        border-radius: 4px;
+                        padding: 8px 16px;
+                        font-size: 14px;
+                        min-width: 80px;
+                    }
+                    QMessageBox QPushButton:hover {
+                        background-color: #2D7D8F;
+                    }
+                    QMessageBox QPushButton:focus {
+                        outline: none;
+                    }
+                """)
+                msg.exec_()
                 return
                 
             try:
@@ -649,7 +765,36 @@ class NotasDialog(QDialog):
                             self.mostrar_nota_seleccionada(current_item)
                             break
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"No se pudo actualizar la nota: {str(e)}")
+                msg = QMessageBox(self)
+                msg.setIcon(QMessageBox.Critical)
+                msg.setWindowTitle("Error")
+                msg.setText(f"No se pudo actualizar la nota: {str(e)}")
+                msg.setStyleSheet("""
+                    QMessageBox {
+                        background-color: #0F3444;
+                        color: white;
+                    }
+                    QMessageBox QLabel {
+                        color: white;
+                        font-size: 14px;
+                    }
+                    QMessageBox QPushButton {
+                        background-color: #1A4D5B;
+                        color: white;
+                        border: 1px solid #2D7D8F;
+                        border-radius: 4px;
+                        padding: 8px 16px;
+                        font-size: 14px;
+                        min-width: 80px;
+                    }
+                    QMessageBox QPushButton:hover {
+                        background-color: #2D7D8F;
+                    }
+                    QMessageBox QPushButton:focus {
+                        outline: none;
+                    }
+                """)
+                msg.exec_()
                 import traceback
                 print(traceback.format_exc())
     
@@ -687,22 +832,27 @@ class NotasDialog(QDialog):
         # Establecer el estilo del diálogo
         msg_box.setStyleSheet("""
             QMessageBox {
-                background-color: #1A4D5B;
-                color: white;
-            }
-            QLabel {
-                color: white;
-            }
-            QPushButton {
                 background-color: #0F3444;
                 color: white;
-                border: 1px solid #518C7A;
-                border-radius: 10px;
-                padding: 5px 15px;
+            }
+            QMessageBox QLabel {
+                color: white;
+                font-size: 14px;
+            }
+            QMessageBox QPushButton {
+                background-color: #1A4D5B;
+                color: white;
+                border: 1px solid #2D7D8F;
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-size: 14px;
                 min-width: 80px;
             }
-            QPushButton:hover {
-                background-color: #518C7A;
+            QMessageBox QPushButton:hover {
+                background-color: #2D7D8F;
+            }
+            QMessageBox QPushButton:focus {
+                outline: none;
             }
         """)
         
