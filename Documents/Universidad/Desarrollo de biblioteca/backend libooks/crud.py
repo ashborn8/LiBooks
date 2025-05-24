@@ -3,7 +3,9 @@ import shutil
 from db import session
 from models import Libro, Nota, Autor, Genero, Coleccion
 from sqlalchemy import or_, and_
+from sqlalchemy.orm import joinedload
 from typing import List, Optional
+import traceback as tb
 
 
 PDF_FOLDER = "libros"
@@ -99,24 +101,6 @@ def obtener_libros_por_ids(ids_libros: List[int]) -> List[Libro]:
         
     return session.query(Libro).filter(Libro.id_libro.in_(ids_libros)).all()
 
-def actualizar_libro(id_libro, nuevo_ruta_pdf=None, nuevo_id_autor=None):
-    libro = session.query(Libro).filter_by(id_libro=id_libro).first()
-    if libro:
-        if nuevo_ruta_pdf:
-            
-            ruta_anterior = os.path.join(PDF_FOLDER, libro.archivo_pdf)
-            if os.path.exists(ruta_anterior):
-                os.remove(ruta_anterior)
-           
-            nombre_archivo = os.path.basename(nuevo_ruta_pdf)
-            nuevo_destino = os.path.join(PDF_FOLDER, nombre_archivo)
-            shutil.copy(nuevo_ruta_pdf, nuevo_destino)
-            libro.archivo_pdf = nombre_archivo
-        if nuevo_id_autor:
-            libro.id_autor = nuevo_id_autor
-        session.commit()
-        return libro
-    return None
 
 def actualizar_libro(id_libro, titulo=None, nombre_autor=None, nombre_genero=None, fecha_lectura=None, paginas_leidas=None):
     """Actualiza la información de un libro"""
@@ -250,8 +234,7 @@ def crear_coleccion(nombre):
     except Exception as e:
         session.rollback()
         print(f"Error al crear la colección: {e}")
-        import traceback
-        traceback.print_exc()
+        tb.print_exc()
         return False
 
 def obtener_colecciones():
@@ -266,8 +249,7 @@ def obtener_colecciones():
         return colecciones
     except Exception as e:
         print(f"Error al obtener las colecciones: {e}")
-        import traceback
-        traceback.print_exc()
+        tb.print_exc()
         return []
 
 def eliminar_coleccion(id_coleccion):
@@ -287,34 +269,80 @@ def eliminar_coleccion(id_coleccion):
     except Exception as e:
         session.rollback()
         print(f"Error al eliminar la colección: {e}")
-        import traceback
-        traceback.print_exc()
+        tb.print_exc()
         return False
 
 def eliminar_libro(id_libro):
-    # Eliminar un libro de la base de datos
+    """
+    Elimina un libro de la base de datos junto con todas sus referencias.
+    
+    Args:
+        id_libro (int): ID del libro a eliminar
+        
+    Returns:
+        bool: True si se eliminó correctamente, False en caso contrario
+    """
     try:
+        # Obtener el libro
         libro = session.query(Libro).get(id_libro)
-        if libro:
-            # Eliminar el archivo PDF si existe
-            if libro.archivo_pdf and os.path.exists(libro.archivo_pdf):
+        if not libro:
+            return False
+        
+        # Obtener las relaciones por separado
+        notas = session.query(Nota).filter_by(id_libro=id_libro).all()
+        colecciones = session.query(Coleccion).filter(Coleccion.libros.any(id_libro=id_libro)).all()
+        
+        # 1. Eliminar el archivo PDF físico si existe
+        if libro.archivo_pdf:
+            ruta_pdf = os.path.join(PDF_FOLDER, libro.archivo_pdf)
+            if os.path.exists(ruta_pdf):
                 try:
-                    os.remove(libro.archivo_pdf)
+                    os.remove(ruta_pdf)
                 except Exception as e:
                     print(f"Error al eliminar el archivo PDF: {e}")
-            
-            # Eliminar las notas asociadas
-            for nota in libro.notas:
-                session.delete(nota)
-            
-            # Eliminar el libro
-            session.delete(libro)
-            session.commit()
-            return True
-        return False
+        
+        # 2. Eliminar todas las notas asociadas al libro
+        for nota in notas:
+            session.delete(nota)
+        
+        # 3. Eliminar las relaciones con las colecciones
+        for coleccion in colecciones:
+            libro.colecciones.remove(coleccion)
+        
+        # 4. Guardar referencias a autor y género antes de eliminar el libro
+        autor_id = libro.id_autor
+        genero_id = libro.id_genero
+        
+        # 5. Eliminar el libro
+        session.delete(libro)
+        session.commit()
+        
+        # 6. Verificar si el autor y el género quedan sin referencias y eliminarlos si es necesario
+        if autor_id:
+            # Verificar si el autor tiene más libros
+            libros_del_autor = session.query(Libro).filter_by(id_autor=autor_id).count()
+            if libros_del_autor == 0:
+                autor = session.query(Autor).get(autor_id)
+                if autor:
+                    session.delete(autor)
+                    session.commit()
+        
+        if genero_id:
+            # Verificar si el género tiene más libros
+            libros_del_genero = session.query(Libro).filter_by(id_genero=genero_id).count()
+            if libros_del_genero == 0:
+                genero = session.query(Genero).get(genero_id)
+                if genero:
+                    session.delete(genero)
+                    session.commit()
+        
+        return True
+        
     except Exception as e:
         session.rollback()
         print(f"Error al eliminar el libro: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def agregar_libro_a_coleccion(id_coleccion, id_libro):
@@ -337,8 +365,7 @@ def agregar_libro_a_coleccion(id_coleccion, id_libro):
     except Exception as e:
         session.rollback()
         print(f"Error al agregar libro a la colección: {e}")
-        import traceback
-        traceback.print_exc()
+        tb.print_exc()
         return False
 
 def quitar_libro_de_coleccion(id_coleccion, id_libro):
@@ -361,8 +388,7 @@ def quitar_libro_de_coleccion(id_coleccion, id_libro):
     except Exception as e:
         session.rollback()
         print(f"Error al quitar libro de la colección: {e}")
-        import traceback
-        traceback.print_exc()
+        tb.print_exc()
         return False
 
 def actualizar_nombre_coleccion(id_coleccion, nuevo_nombre):
@@ -387,8 +413,7 @@ def actualizar_nombre_coleccion(id_coleccion, nuevo_nombre):
     except Exception as e:
         session.rollback()
         print(f"Error al actualizar el nombre de la colección: {e}")
-        import traceback
-        traceback.print_exc()
+        tb.print_exc()
         return False
 
 def obtener_coleccion_por_id(id_coleccion):
@@ -424,6 +449,5 @@ def obtener_libros_en_coleccion(id_coleccion):
         return libros
     except Exception as e:
         print(f"Error al obtener libros de la colección: {e}")
-        import traceback
-        traceback.print_exc()
+        tb.print_exc()
         return []

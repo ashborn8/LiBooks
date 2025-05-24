@@ -295,6 +295,61 @@ class BibliotecaApp(QWidget):
 
     def __init__(self):
         super().__init__()
+        
+        # Estilo para la aplicación y QMessageBox
+        self.setStyleSheet("""
+            /* Estilo general de la aplicación */
+            QWidget {
+                background-color: #0F3444;
+                color: white;
+            }
+            
+            /* Estilos para QMessageBox */
+            QMessageBox {
+                background-color: #0F3444;
+                color: white;
+            }
+            QMessageBox QLabel {
+                color: white;
+                font-size: 14px;
+            }
+            QMessageBox QPushButton {
+                background-color: #1A4D5B;
+                color: white;
+                border: 1px solid #2D7D8F;
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-size: 14px;
+                min-width: 80px;
+            }
+            QMessageBox QPushButton:hover {
+                background-color: #2D7D8F;
+            }
+            QMessageBox QPushButton:focus {
+                outline: none;
+            }
+            QMessageBox QLabel#qt_msgbox_informativelabel {
+                color: #E0E0E0;
+            }
+            QMessageBox QLabel#qt_msgbox_icon {
+                width: 24px;
+                height: 24px;
+            }
+            
+            /* Estilo para el botón de eliminar */
+            QPushButton#deleteButton {
+                background-color: #FF5252;
+                color: white;
+                border: none;
+                border-radius: 15px;
+                padding: 5px 10px;
+                font-size: 14px;
+            }
+            QPushButton#deleteButton:hover {
+                background-color: #FF1744;
+            }
+        """)
+        
         self.delete_button_style = """
             QPushButton {
                 background-color: #FF5252;
@@ -310,7 +365,6 @@ class BibliotecaApp(QWidget):
         """
         self.setWindowTitle('Biblioteca Digital')
         self.setGeometry(100, 100, 1200, 700)
-        self.setStyleSheet("background-color: #0F3444;")
         
         # Inicializar la lista de PDFs
         self.pdf_list = []
@@ -979,28 +1033,121 @@ class BibliotecaApp(QWidget):
 
     def confirmar_eliminar_libro(self, id_libro):
         """Confirma si el usuario quiere eliminar el libro"""
-        reply = QMessageBox.question(
-            self,
-            'Confirmar eliminación',
-            '¿Estás seguro de que quieres eliminar este libro?\n\nEsta acción no se puede deshacer.',
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(QMessageBox.Question)
+        msg_box.setWindowTitle("Confirmar eliminación")
+        msg_box.setText("¿Estás seguro de que quieres eliminar este libro?")
+        msg_box.setInformativeText("Esta acción no se puede deshacer.")
+        
+        # Configurar botones personalizados
+        si_btn = msg_box.addButton("Sí, eliminar", QMessageBox.YesRole)
+        no_btn = msg_box.addButton("Cancelar", QMessageBox.NoRole)
+        
+        # Establecer estilos
+        msg_box.setStyleSheet("""
+            QMessageBox {
+                background-color: #0F3444;
+                color: white;
+            }
+            QMessageBox QLabel {
+                color: white;
+                font-size: 14px;
+            }
+            QMessageBox QLabel#qt_msgbox_informativelabel {
+                color: #FF6B6B;
+                font-size: 13px;
+            }
+            QMessageBox QPushButton {
+                background-color: #1A4D5B;
+                color: white;
+                border: 1px solid #2D7D8F;
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-size: 14px;
+                min-width: 100px;
+            }
+            QMessageBox QPushButton:hover {
+                background-color: #2D7D8F;
+            }
+            QMessageBox QPushButton:focus {
+                outline: none;
+            }
+        """)
+        
+        # Establecer el botón por defecto (rojo para confirmar peligro)
+        si_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #DC3545;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #C82333;
+            }
+        """)
+        
+        msg_box.exec_()
 
-        if reply == QMessageBox.Yes:
+        if msg_box.clickedButton() == si_btn:
             self.eliminar_libro(id_libro)
 
     def confirmar_eliminar_coleccion(self, id_coleccion, nombre_coleccion):
         """Muestra un diálogo de confirmación para eliminar una colección"""
-        reply = QMessageBox.question(
-            self,
-            'Confirmar eliminación',
-            f'¿Estás seguro de que quieres eliminar la colección "{nombre_coleccion}"?\n\nEsta acción no se puede deshacer.',
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(QMessageBox.Question)
+        msg_box.setWindowTitle("Confirmar eliminación")
+        msg_box.setText(f"¿Estás seguro de que quieres eliminar la colección?")
+        msg_box.setInformativeText(f"\n\"{nombre_coleccion}\"\n\nEsta acción no se puede deshacer.")
+        
+        # Configurar botones personalizados
+        si_btn = msg_box.addButton("Sí, eliminar", QMessageBox.YesRole)
+        no_btn = msg_box.addButton("Cancelar", QMessageBox.NoRole)
+        
+        # Establecer estilos
+        msg_box.setStyleSheet("""
+            QMessageBox {
+                background-color: #0F3444;
+                color: white;
+            }
+            QMessageBox QLabel {
+                color: white;
+                font-size: 14px;
+            }
+            QMessageBox QLabel#qt_msgbox_informativelabel {
+                color: #FF6B6B;
+                font-size: 13px;
+                font-style: italic;
+            }
+            QMessageBox QPushButton {
+                background-color: #1A4D5B;
+                color: white;
+                border: 1px solid #2D7D8F;
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-size: 14px;
+                min-width: 100px;
+            }
+            QMessageBox QPushButton:hover {
+                background-color: #2D7D8F;
+            }
+            QMessageBox QPushButton:focus {
+                outline: none;
+            }
+        """)
+        
+        # Establecer el botón por defecto (rojo para confirmar peligro)
+        si_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #DC3545;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #C82333;
+            }
+        """)
+        
+        msg_box.exec_()
 
-        if reply == QMessageBox.Yes:
+        if msg_box.clickedButton() == si_btn:
             self.eliminar_coleccion(id_coleccion)
 
     def eliminar_coleccion(self, id_coleccion):
