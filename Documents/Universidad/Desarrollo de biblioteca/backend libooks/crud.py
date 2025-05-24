@@ -2,8 +2,7 @@ import os
 import shutil
 from db import session
 from models import Libro, Nota, Autor, Genero, Coleccion
-from sqlalchemy import or_, and_, func
-from sqlalchemy.orm import joinedload
+from sqlalchemy import func
 from typing import List, Optional
 import traceback as tb
 

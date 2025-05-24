@@ -1,24 +1,17 @@
+import os
+import sys
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton, QVBoxLayout,
     QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QFrame,
-    QFileDialog, QMessageBox, QDialog, QInputDialog, QMenu, QAction,
-    QFormLayout, QComboBox, QDialogButtonBox, QCheckBox, QScrollArea, QStackedWidget, QGridLayout, QSizePolicy
+    QFileDialog, QMessageBox, QDialog, QInputDialog, QMenu,
+    QFormLayout, QComboBox, QScrollArea, QStackedWidget, QGridLayout, QSizePolicy
 )
-from PyQt5.QtGui import QPainter, QPen, QBrush, QColor, QPixmap, QPainterPath, QFont
+from PyQt5.QtGui import QPainter, QPen, QColor, QPixmap, QPainterPath, QFont, QIcon
 from PyQt5.QtCore import Qt, QSize
-import psycopg2
-import sys
-import os
-from crud import crear_coleccion, agregar_libro_a_coleccion
 
+from crud import crear_coleccion, agregar_libro_a_coleccion, crear_libro_pdf
 from pdf_viewer import PDFViewer
-
 from datos import Datos
-from PyQt5.QtGui import QFont, QIcon, QColor, QPixmap
-from PyQt5.QtCore import Qt, QSize
-import os
-
-from crud import crear_libro_pdf
 
 def crear_formulario_coleccion(parent):
     """Crea y devuelve el widget del formulario de creación de colecciones"""
@@ -1456,9 +1449,3 @@ class BibliotecaApp(QWidget):
         """Método para manejar la búsqueda al presionar Enter"""
         texto = self.search_input.text()
         self.filtrar_libros(texto)
-
-if __name__ == "__main__":  
-    app = QApplication(sys.argv)
-    window = BibliotecaApp()
-    window.show()
-    sys.exit(app.exec_())

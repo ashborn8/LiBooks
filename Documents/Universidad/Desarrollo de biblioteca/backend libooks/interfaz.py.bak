@@ -585,18 +585,6 @@ class BibliotecaApp(QWidget):
         sidebar_layout.addWidget(scroll_container)
         sidebar_layout.addStretch()
 
-        config_button = QPushButton("Configuraciones ⚙")
-        config_button.setIcon(QIcon.fromTheme("settings"))
-        config_button.setStyleSheet("""
-            QPushButton {
-                color: white;
-                font-size: 14px;
-                background-color: transparent;
-                border: none;
-                margin-bottom: 10px;
-            }
-        """)
-        sidebar_layout.addWidget(config_button, alignment=Qt.AlignBottom)
 
         line = QFrame()
         line.setFrameShape(QFrame.VLine)
@@ -974,7 +962,8 @@ class BibliotecaApp(QWidget):
 
         # Prellenar los campos con los datos actuales
         dialog.titulo_input.setText(libro.titulo)
-        dialog.autor_input.setText(libro.autor)
+        dialog.autor_input.setText(libro.autor if libro.autor else '')
+        dialog.genero_input.setText(libro.genero if libro.genero else '')
 
         # Cambiar el título del diálogo
         dialog.setWindowTitle("Actualizar Libro")
@@ -994,8 +983,16 @@ class BibliotecaApp(QWidget):
         try:
             from crud import actualizar_libro
 
+            # Obtener el género actual del diálogo
+            nuevo_genero = dialog.genero_input.text()
+            
             # Actualizar el libro usando la función de crud
-            actualizar_libro(id_libro, titulo=nuevo_titulo, nombre_autor=nuevo_autor)
+            actualizar_libro(
+                id_libro, 
+                titulo=nuevo_titulo, 
+                nombre_autor=nuevo_autor,
+                nombre_genero=nuevo_genero if nuevo_genero else None
+            )
 
             # Actualizar la interfaz
             self.cargar_pdf_desde_db()
@@ -1022,6 +1019,7 @@ class BibliotecaApp(QWidget):
                     'id_libro': libro.id_libro,
                     'titulo': libro.titulo,
                     'autor': libro.autor.nombre if libro.autor else None,
+                    'genero': libro.genero.nombre if libro.genero else None,
                     'archivo_pdf': libro.archivo_pdf
                 })()
 
